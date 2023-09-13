@@ -34,7 +34,7 @@ Description
 
 Foam::tensor computePCA
 (
-    const fvMesh& mesh,
+    const polyMesh& mesh,
     const label& ci
 )
 {
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 
     #include "setRootCase.H"
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createNamedMesh.H"
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
