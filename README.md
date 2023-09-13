@@ -7,10 +7,7 @@ Let first ${\textbf{p}\_i}$, $i=1,...,N$, be the cell nodes and
 let ${\textbf{f}\_i}$, $i=1,...,N\_f$ be the face barycentres.
 Let $K$ be a mesh cell and let **o** be its barycentre, then the correlation matrix C reads
 
-$
-\text{C} \simeq \cfrac{1}{\left\vert\partial K\right\vert}
-\int_{\partial K} (\mathbf{x} - \textbf{o})(\mathbf{x} - \textbf{o})^\intercal \text{d} \mathbf{x},
-$
+$\text{C} \simeq \cfrac{1}{\left\vert\partial K\right\vert} \int_{\partial K} (\mathbf{x} - \textbf{o})(\mathbf{x} - \textbf{o})^\intercal \text{d} \mathbf{x},$
 
 where the integral is computed with a quadrature formula using cell nodes and face barycentres.
 
