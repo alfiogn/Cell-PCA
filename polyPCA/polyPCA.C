@@ -89,14 +89,10 @@ Foam::tensor computePCA
     const vector evals = Foam::eigenValues(pd);
     const tensor evecs = Foam::eigenVectors(pd, evals);
 
-    // Compute the system of reference weighted by 1/evals
-    for (int i = 0; i < 3; i++)
-    {
-        scalar evi = Foam::sqrt(evals[i]);
-        pd[3*i]     =     evecs[3*i]*evi;
-        pd[3*i + 1] = evecs[3*i + 1]*evi;
-        pd[3*i + 2] = evecs[3*i + 2]*evi;
-    }
+    // Compute the system of reference weighted by evals
+    pd.z() = evecs.z()*Foam::sqrt(evals.z());
+    pd.y() = evecs.y()*Foam::sqrt(evals.y());
+    pd.x() = evecs.x()*Foam::sqrt(evals.x());
 
     return pd;
 }
@@ -116,15 +112,24 @@ void writeVTK
 
     file<< "POINTS 6 float" << nl;
 
-    for (int i = 0; i < 3; i++)
-    {
-        file<< ctr[0] -     pd[3*i]/2 << " "
-            << ctr[1] - pd[3*i + 1]/2 << " "
-            << ctr[2] - pd[3*i + 2]/2 << nl
-            << ctr[0] +     pd[3*i]/2 << " "
-            << ctr[1] + pd[3*i + 1]/2 << " "
-            << ctr[2] + pd[3*i + 2]/2 << nl;
-    }
+    file<< ctr[0] - pd.x()[0]/2 << " "
+        << ctr[1] - pd.x()[1]/2 << " "
+        << ctr[2] - pd.x()[2]/2 << nl
+        << ctr[0] + pd.x()[0]/2 << " "
+        << ctr[1] + pd.x()[1]/2 << " "
+        << ctr[2] + pd.x()[2]/2 << nl
+        << ctr[0] - pd.y()[0]/2 << " "
+        << ctr[1] - pd.y()[1]/2 << " "
+        << ctr[2] - pd.y()[2]/2 << nl
+        << ctr[0] + pd.y()[0]/2 << " "
+        << ctr[1] + pd.y()[1]/2 << " "
+        << ctr[2] + pd.z()[2]/2 << nl
+        << ctr[0] - pd.z()[0]/2 << " "
+        << ctr[1] - pd.z()[1]/2 << " "
+        << ctr[2] - pd.z()[2]/2 << nl
+        << ctr[0] + pd.z()[0]/2 << " "
+        << ctr[1] + pd.z()[1]/2 << " "
+        << ctr[2] + pd.z()[2]/2 << nl;
 
     file<< nl << "CELLS 3 9" << nl
         << "2 0 1" << nl
