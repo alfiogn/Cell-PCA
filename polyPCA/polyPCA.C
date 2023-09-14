@@ -86,7 +86,7 @@ Foam::tensor computePCA
 
     pd /= surfArea;
 
-    scalar threshold = mag(pd)*small;
+    scalar threshold = mag(pd)*rootSmall;
 
     forAll(pd, j)
     {
