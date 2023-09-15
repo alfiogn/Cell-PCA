@@ -89,18 +89,8 @@ Foam::tensor computePCA
         }
     }
 
-    scalar ths = mag(pca)*rootSmall;
-
-    forAll(pca, j)
-    {
-        if (pca[j] < ths)
-        {
-            pca[j] = 0.0;
-        }
-
-        //pca[j] /= scalar(nPts - 1);
-        pca[j] /= surfArea;
-    }
+    //pca /= scalar(nPts - 1);
+    pca /= surfArea;
 
     const vector evals = Foam::eigenValues(pca);
     const tensor evecs = Foam::eigenVectors(pca, evals);
