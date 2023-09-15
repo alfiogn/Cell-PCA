@@ -38,58 +38,75 @@ Foam::tensor computePCA
     const label& ci
 )
 {
-    const cellList& cellFaces = mesh.cells();
     const faceList& facePoints = mesh.faces();
     const vectorField& faces = mesh.faceCentres();
     const vectorField& points = mesh.points();
 
     // PCA
-    const labelList& facesI = cellFaces[ci];
+    const labelList& facesI = mesh.cells()[ci];
 
-    tensor pd(Zero);
+    symmTensor pca(Zero);
 
     const vector& ctr = mesh.cellCentres()[ci];
 
+    //label nPts = 0;
     scalar surfArea = 0.0;
 
     forAll(facesI, fj)
     {
+        //nPts++;
         surfArea += mesh.magFaceAreas()[facesI[fj]];
 
         const vector& cfr = faces[facesI[fj]];
         const labelList& pointsJ = facePoints[facesI[fj]];
 
         const vector ef(cfr - ctr);
-        const tensor outEf
+        symmTensor outEf
         (
             ef[0]*ef[0], ef[0]*ef[1], ef[0]*ef[2],
-            ef[1]*ef[0], ef[1]*ef[1], ef[1]*ef[2],
-            ef[2]*ef[0], ef[2]*ef[1], ef[2]*ef[2]
+                         ef[1]*ef[1], ef[1]*ef[2],
+                                      ef[2]*ef[2]
         );
+        outEf *= (scalar(pointsJ.size()) - 1.0)/3.0;
 
-        pd += outEf*scalar(pointsJ.size() - 1)/3.0;
+        pca += outEf;
 
         forAll(pointsJ, pj)
         {
+            //nPts++;
+
             const vector& cfj = points[pointsJ[pj]];
             const vector ej(cfj - ctr);
-            const tensor outEj
+            symmTensor outEj
             (
                 ej[0]*ej[0], ej[0]*ej[1], ej[0]*ej[2],
-                ej[1]*ej[0], ej[1]*ej[1], ej[1]*ej[2],
-                ej[2]*ej[0], ej[2]*ej[1], ej[2]*ej[2]
+                             ej[1]*ej[1], ej[1]*ej[2],
+                                          ej[2]*ej[2]
             );
+            outEj *= 2.0/3.0;
 
-            pd += outEj*2.0/3.0;
+            pca += outEj;
         }
     }
 
-    pd /= surfArea;
+    scalar ths = mag(pca)*rootSmall;
 
-    const vector evals = Foam::eigenValues(pd);
-    const tensor evecs = Foam::eigenVectors(pd, evals);
+    forAll(pca, j)
+    {
+        if (pca[j] < ths)
+        {
+            pca[j] = 0.0;
+        }
+
+        //pca[j] /= scalar(nPts - 1);
+        pca[j] /= surfArea;
+    }
+
+    const vector evals = Foam::eigenValues(pca);
+    const tensor evecs = Foam::eigenVectors(pca, evals);
 
     // Compute the system of reference weighted by evals
+    tensor pd(Zero);
     pd.z() = evecs.z()*Foam::sqrt(evals.z());
     pd.y() = evecs.y()*Foam::sqrt(evals.y());
     pd.x() = evecs.x()*Foam::sqrt(evals.x());
