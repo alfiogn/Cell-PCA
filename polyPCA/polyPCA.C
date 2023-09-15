@@ -67,7 +67,7 @@ Foam::tensor computePCA
             ef[2]*ef[0], ef[2]*ef[1], ef[2]*ef[2]
         );
 
-        pd += outEf*(pointsJ.size() - 1)/3.0;
+        pd += outEf*scalar(pointsJ.size() - 1)/3.0;
 
         forAll(pointsJ, pj)
         {
@@ -85,16 +85,6 @@ Foam::tensor computePCA
     }
 
     pd /= surfArea;
-
-    scalar threshold = mag(pd)*rootSmall;
-
-    forAll(pd, j)
-    {
-        if (mag(pd[j]) < threshold)
-        {
-            pd[j] = 0;
-        }
-    }
 
     const vector evals = Foam::eigenValues(pd);
     const tensor evecs = Foam::eigenVectors(pd, evals);
