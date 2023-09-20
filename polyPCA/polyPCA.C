@@ -137,21 +137,19 @@ Foam::tensor computePDedges
     SortableList<scalar> minCos(magEdges.size() - 2);
     for (int ej = 1; ej < (magEdges.size() - 1); ej++)
     {
-        minCos[ej - 1] =
-            magSqr((edgesV[ej] & v0)/magEdges[ej]/mag(v0))
-          + magSqr((edgesV[ej] & v2)/magEdges[ej]/mag(v2));
+        minCos[ej - 1] = (edgesV[ej] & v0) + (edgesV[ej] & v2);
     }
 
     minCos.sort();
+    const label& idx = magEdges.indices()[minCos.indices()[0] + 1];
 
     // Gram-schmidt process to find orthogonal base
     vector u1 =
-        edgesV[minCos.indices()[0] + 1]
-      - (edgesV[minCos.indices()[0] + 1] & v0)/magSqr(v0)*v0;
+        edgesV[idx] - (edgesV[idx] & v0)/magSqr(v0)*v0;
     vector u2 = v2 - (v2 & v0)/magSqr(v0)*v0 - (v2 & u1)/magSqr(u1)*u1;
 
     return tensor(v0, u1, u2);
-    //return tensor(v0, edgesV[minCos.indices()[0] + 1], v2);
+    //return tensor(v0, edgesV[idx], v2);
 }
 
 
@@ -217,7 +215,11 @@ void writeVTK
     const tensorField& pd
 )
 {
-    OFstream file("cellPCA.vtk");
+    word parRun =
+        Pstream::parRun() ?
+        "_proc" + Foam::name(Pstream::myProcNo()) : "";
+
+    OFstream file("cellPCA" + parRun + ".vtk");
 
     file<< "# vtk DataFile Version 2.0" << nl
         << "cell PCA\nASCII\nDATASET UNSTRUCTURED_GRID" << nl;
@@ -308,6 +310,7 @@ int main(int argc, char *argv[])
         Pout<< "Computing principal directions of cell " << ci << endl;
 
         tensor pd = usePCA ? computePCA(mesh, ci) : computePDedges(mesh, ci);
+        Pout<<pd<<nl;
 
         if (args.optionFound("writeVTK"))
         {
