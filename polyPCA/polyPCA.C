@@ -138,11 +138,11 @@ Foam::tensor computePDedges
     for (int ej = 1; ej < (magEdges.size() - 1); ej++)
     {
         minCos[ej - 1] =
-            mag(edgesV[ej] & v0/mag(v0)) + mag(edgesV[ej] & v2/mag(v2));
+            (mag(edgesV[ej] & v0/mag(v0)) + mag(edgesV[ej] & v2/mag(v2)));
     }
 
     minCos.sort();
-    const label idx = magEdges.indices()[minCos.indices()[0] + 1];
+    const label idx = minCos.indices()[0] + 1;
 
     // Gram-schmidt process to find orthogonal base
     vector u1 =
