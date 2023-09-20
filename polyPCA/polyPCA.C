@@ -29,6 +29,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
+#include "SortableList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -96,12 +97,61 @@ Foam::tensor computePCA
     const tensor evecs = Foam::eigenVectors(pca, evals);
 
     // Compute the system of reference weighted by evals
-    tensor pd(Zero);
-    pd.z() = evecs.z()*Foam::sqrt(evals.z());
-    pd.y() = evecs.y()*Foam::sqrt(evals.y());
-    pd.x() = evecs.x()*Foam::sqrt(evals.x());
+    return tensor
+    (
+        evecs.z()*Foam::sqrt(evals.z()),
+        evecs.y()*Foam::sqrt(evals.y()),
+        evecs.x()*Foam::sqrt(evals.x())
+    );
+}
 
-    return pd;
+
+Foam::tensor computePDedges
+(
+    const polyMesh& mesh,
+    const label& ci
+)
+{
+    const edgeList& edges = mesh.edges();
+    const vectorField& points = mesh.points();
+
+    // PD sorting edges by length
+    const labelList& edgesI = mesh.cellEdges()[ci];
+
+    List<vector> edgesV(edgesI.size());
+    SortableList<scalar> magEdges(edgesI.size());
+
+    forAll(edgesI, ej)
+    {
+        edgesV[ej] =
+            points[edges[edgesI[ej]][1]]
+          - points[edges[edgesI[ej]][0]];
+        magEdges[ej] = mag(edgesV[ej]);
+    }
+
+    magEdges.sort();
+
+    vector v0 = edgesV[magEdges.indices().last()];
+    vector v2 = edgesV[magEdges.indices()[0]];
+
+    SortableList<scalar> minCos(magEdges.size() - 2);
+    for (int ej = 1; ej < (magEdges.size() - 1); ej++)
+    {
+        minCos[ej - 1] =
+            magSqr((edgesV[ej] & v0)/magEdges[ej]/mag(v0))
+          + magSqr((edgesV[ej] & v2)/magEdges[ej]/mag(v2));
+    }
+
+    minCos.sort();
+
+    // Gram-schmidt process to find orthogonal base
+    vector u1 =
+        edgesV[minCos.indices()[0] + 1]
+      - (edgesV[minCos.indices()[0] + 1] & v0)/magSqr(v0)*v0;
+    vector u2 = v2 - (v2 & v0)/magSqr(v0)*v0 - (v2 & u1)/magSqr(u1)*u1;
+
+    return tensor(v0, u1, u2);
+    //return tensor(v0, edgesV[minCos.indices()[0] + 1], v2);
 }
 
 
@@ -119,24 +169,24 @@ void writeVTK
 
     file<< "POINTS 6 float" << nl;
 
-    file<< ctr[0] - pd.x()[0]/2 << " "
-        << ctr[1] - pd.x()[1]/2 << " "
-        << ctr[2] - pd.x()[2]/2 << nl
-        << ctr[0] + pd.x()[0]/2 << " "
-        << ctr[1] + pd.x()[1]/2 << " "
-        << ctr[2] + pd.x()[2]/2 << nl
-        << ctr[0] - pd.y()[0]/2 << " "
-        << ctr[1] - pd.y()[1]/2 << " "
-        << ctr[2] - pd.y()[2]/2 << nl
-        << ctr[0] + pd.y()[0]/2 << " "
-        << ctr[1] + pd.y()[1]/2 << " "
-        << ctr[2] + pd.z()[2]/2 << nl
-        << ctr[0] - pd.z()[0]/2 << " "
-        << ctr[1] - pd.z()[1]/2 << " "
-        << ctr[2] - pd.z()[2]/2 << nl
-        << ctr[0] + pd.z()[0]/2 << " "
-        << ctr[1] + pd.z()[1]/2 << " "
-        << ctr[2] + pd.z()[2]/2 << nl;
+    file<< ctr[0] - pd.xx()/2 << " "
+        << ctr[1] - pd.xy()/2 << " "
+        << ctr[2] - pd.xz()/2 << nl
+        << ctr[0] + pd.xx()/2 << " "
+        << ctr[1] + pd.xy()/2 << " "
+        << ctr[2] + pd.xz()/2 << nl
+        << ctr[0] - pd.yx()/2 << " "
+        << ctr[1] - pd.yy()/2 << " "
+        << ctr[2] - pd.yz()/2 << nl
+        << ctr[0] + pd.yx()/2 << " "
+        << ctr[1] + pd.yy()/2 << " "
+        << ctr[2] + pd.yz()/2 << nl
+        << ctr[0] - pd.zx()/2 << " "
+        << ctr[1] - pd.zy()/2 << " "
+        << ctr[2] - pd.zz()/2 << nl
+        << ctr[0] + pd.zx()/2 << " "
+        << ctr[1] + pd.zy()/2 << " "
+        << ctr[2] + pd.zz()/2 << nl;
 
     file<< nl << "CELLS 3 9" << nl
         << "2 0 1" << nl
@@ -161,9 +211,80 @@ void writeVTK
 }
 
 
+void writeVTK
+(
+    const fvMesh& mesh,
+    const tensorField& pd
+)
+{
+    OFstream file("cellPCA.vtk");
+
+    file<< "# vtk DataFile Version 2.0" << nl
+        << "cell PCA\nASCII\nDATASET UNSTRUCTURED_GRID" << nl;
+
+    label nc = mesh.nCells();
+
+    file<< "POINTS " << 6*nc << " float" << nl;
+
+    forAll(mesh.cells(), ci)
+    {
+        const vector& ctr = mesh.cellCentres()[ci];
+        file<< ctr[0] - pd[ci].xx()/2 << " "
+            << ctr[1] - pd[ci].xy()/2 << " "
+            << ctr[2] - pd[ci].xz()/2 << nl
+            << ctr[0] + pd[ci].xx()/2 << " "
+            << ctr[1] + pd[ci].xy()/2 << " "
+            << ctr[2] + pd[ci].xz()/2 << nl
+            << ctr[0] - pd[ci].yx()/2 << " "
+            << ctr[1] - pd[ci].yy()/2 << " "
+            << ctr[2] - pd[ci].yz()/2 << nl
+            << ctr[0] + pd[ci].yx()/2 << " "
+            << ctr[1] + pd[ci].yy()/2 << " "
+            << ctr[2] + pd[ci].yz()/2 << nl
+            << ctr[0] - pd[ci].zx()/2 << " "
+            << ctr[1] - pd[ci].zy()/2 << " "
+            << ctr[2] - pd[ci].zz()/2 << nl
+            << ctr[0] + pd[ci].zx()/2 << " "
+            << ctr[1] + pd[ci].zy()/2 << " "
+            << ctr[2] + pd[ci].zz()/2 << nl;
+    }
+
+    file<< nl << "CELLS " << 3*nc << " " << 9*nc << nl;
+    forAll(mesh.cells(), ci)
+    {
+        file<< "2 " <<  6*ci      << " " << (6*ci + 1) << nl
+            << "2 " << (6*ci + 2) << " " << (6*ci + 3) << nl
+            << "2 " << (6*ci + 4) << " " << (6*ci + 5) << nl;
+    }
+
+    file<< nl << "CELL_TYPES " << 3*nc << nl;
+    forAll(mesh.cells(), ci)
+    {
+        file<< "3" << nl
+            << "3" << nl
+            << "3" << nl;
+    }
+
+    file<< nl << "CELL_DATA " << 3*nc << nl
+        << "FIELD attributes 1" << nl
+        << "Eigenvalues 1 " << 3*nc << " float" << nl;
+    forAll(mesh.cells(), ci)
+    {
+        vector evals(mag(pd[ci].x()), mag(pd[ci].y()), mag(pd[ci].z()));
+
+        for (int i = 2; i > -1; i--)
+        {
+            file<< evals[i] << nl;
+        }
+    }
+
+}
+
+
 int main(int argc, char *argv[])
 {
     argList::addBoolOption("writeVTK", "write VTK files of principal directions");
+    argList::addBoolOption("usePCA", "use PCA to find principal directions");
     argList::addOption("cell", "label", "perform for a particular cell");
     argList::addOption("cellSet", "word", "perform for a cell set (TODO)");
 
@@ -178,13 +299,15 @@ int main(int argc, char *argv[])
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+    bool usePCA = args.optionFound("usePCA");
+
     if (args.optionFound("cell"))
     {
         label ci = args.optionRead<label>("cell");
 
         Pout<< "Computing principal directions of cell " << ci << endl;
 
-        tensor pd = computePCA(mesh, ci);
+        tensor pd = usePCA ? computePCA(mesh, ci) : computePDedges(mesh, ci);
 
         if (args.optionFound("writeVTK"))
         {
@@ -194,17 +317,17 @@ int main(int argc, char *argv[])
     }
     else
     {
+        tensorField pd(mesh.nCells());
         forAll(mesh.cells(), ci)
         {
             Pout<< "Computing principal directions of cell " << ci << endl;
 
-            tensor pd = computePCA(mesh, ci);
+            pd[ci] = usePCA ? computePCA(mesh, ci) : computePDedges(mesh, ci);
+        }
 
-            if (args.optionFound("writeVTK"))
-            {
-                const vector& ctr = mesh.cellCentres()[ci];
-                writeVTK(ci, ctr, pd);
-            }
+        if (args.optionFound("writeVTK"))
+        {
+            writeVTK(mesh, pd);
         }
     }
 
