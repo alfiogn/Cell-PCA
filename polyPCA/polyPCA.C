@@ -137,11 +137,12 @@ Foam::tensor computePDedges
     SortableList<scalar> minCos(magEdges.size() - 2);
     for (int ej = 1; ej < (magEdges.size() - 1); ej++)
     {
-        minCos[ej - 1] = (edgesV[ej] & v0) + (edgesV[ej] & v2);
+        minCos[ej - 1] =
+            mag(edgesV[ej] & v0/mag(v0)) + mag(edgesV[ej] & v2/mag(v2));
     }
 
     minCos.sort();
-    const label& idx = magEdges.indices()[minCos.indices()[0] + 1];
+    const label idx = magEdges.indices()[minCos.indices()[0] + 1];
 
     // Gram-schmidt process to find orthogonal base
     vector u1 =
@@ -310,7 +311,6 @@ int main(int argc, char *argv[])
         Pout<< "Computing principal directions of cell " << ci << endl;
 
         tensor pd = usePCA ? computePCA(mesh, ci) : computePDedges(mesh, ci);
-        Pout<<pd<<nl;
 
         if (args.optionFound("writeVTK"))
         {
