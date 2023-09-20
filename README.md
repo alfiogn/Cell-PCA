@@ -22,6 +22,13 @@ Tested on OpenFOAM-10.
 ## Usage
 `example-of10`: usage of `polyPCA` on a one-cell mesh.
 
+### PCA
+The usage of `Foam::eigenVectors` presented FPE issues on some `gcc` version.
+Due to this issue the default usage of `polyPCA` computes principal directions
+using edges. However this procedure works well on hexaedra.
+
+To use PCA just append the flag `usePCA` to the executable.
+
 
 ## TODO
 * Input for general polyhedra (not only OpenFOAM mesh cells)
